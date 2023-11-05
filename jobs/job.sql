@@ -35,5 +35,6 @@ create temporary table products (
     'table-name' = 'products'
 );
 
+SET 'execution.checkpointing.interval' = '10 s';
 
 INSERT INTO myproducts (id,name) SELECT id, name FROM products;
