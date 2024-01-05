@@ -2,14 +2,12 @@ USE CATALOG default_catalog;
 
 CREATE CATALOG s3_catalog WITH (
     'type' = 'paimon',
-    'warehouse' = 's3://my-test-bucket/paimon',
-    's3.access-key' = '',
-    's3.secret-key' = ''
+    'warehouse' = 's3://my-test-bucket/paimon'
 );
 
 USE CATALOG s3_catalog;
 
-CREATE DATABASE my_database;
+CREATE DATABASE IF NOT EXISTS my_database;
 
 USE my_database;
 
