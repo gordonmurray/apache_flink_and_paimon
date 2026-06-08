@@ -86,6 +86,16 @@ INSERT INTO user_events VALUES
 SELECT * FROM user_events;
 ```
 
+### 5. Run the Smoke Test
+
+Once the INSERT job has finished, confirm the demo actually wrote Paimon data to MinIO:
+
+```bash
+python3 verify_test.py
+```
+
+It checks the running containers, the Flink REST API, and the Paimon table in MinIO, and exits non-zero if anything is missing.
+
 ## 📊 What You'll See
 
 - Your INSERT job will appear in the Flink Web UI and complete successfully

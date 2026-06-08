@@ -1,81 +1,126 @@
 #!/usr/bin/env python3
-import json
-import subprocess
-import time
+"""Smoke test for the Flink + Paimon + MinIO demo.
 
-def run_command(cmd):
-    """Run a command and return output"""
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    return result.stdout
+Run this after `docker compose up -d` and the SQL walkthrough in
+`sql/test_paimon.sql`. It exits non-zero unless the stack is healthy and the
+demo has actually written Paimon data to MinIO, so it can be used in CI or as
+a quick local sanity check.
+
+The expected warehouse, database, and table can be overridden with the
+PAIMON_WAREHOUSE, PAIMON_DATABASE, and PAIMON_TABLE environment variables to
+match a different demo.
+"""
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+from subprocess import run, CalledProcessError, PIPE
+
+FLINK_REST = os.environ.get("FLINK_REST_URL", "http://localhost:8081")
+MINIO_CONTAINER = os.environ.get("MINIO_CONTAINER", "minio")
+WAREHOUSE = os.environ.get("PAIMON_WAREHOUSE", "warehouse")
+DATABASE = os.environ.get("PAIMON_DATABASE", "test_db")
+TABLE = os.environ.get("PAIMON_TABLE", "users")
+EXPECTED_CONTAINERS = ("minio", "flink-jobmanager", "flink-taskmanager")
+
+# MinIO single-drive layout stores each object under /data/<bucket>/...
+TABLE_PATH = f"/data/{WAREHOUSE}/{DATABASE}.db/{TABLE}"
+
+
+class SmokeTestError(Exception):
+    """Raised when a check fails so main() can report it and exit non-zero."""
+
+
+def docker(*args):
+    """Run a docker command with an explicit argument list."""
+    return run(["docker", *args], check=True, stdout=PIPE, stderr=PIPE, text=True).stdout
+
+
+def check_containers():
+    for name in EXPECTED_CONTAINERS:
+        try:
+            state = docker(
+                "inspect", "-f",
+                "{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{end}}",
+                name,
+            ).strip()
+        except CalledProcessError:
+            raise SmokeTestError(f"container '{name}' is not present, start the stack with docker compose up -d")
+        running, _, health = state.partition(" ")
+        if running != "true":
+            raise SmokeTestError(f"container '{name}' is not running")
+        if health and health != "healthy":
+            raise SmokeTestError(f"container '{name}' is {health}, expected healthy")
+        print(f"  ok   container {name} running{f' ({health})' if health else ''}")
+
+
+def check_flink():
+    url = f"{FLINK_REST}/overview"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            overview = json.load(resp)
+    except (urllib.error.URLError, OSError) as exc:
+        raise SmokeTestError(f"Flink REST API unavailable at {url}: {exc}")
+    taskmanagers = overview.get("taskmanagers", 0)
+    if taskmanagers < 1:
+        raise SmokeTestError("Flink reports no registered task managers")
+    print(f"  ok   Flink {overview.get('flink-version', 'unknown')}, "
+          f"{taskmanagers} task manager(s), {overview.get('slots-total', 0)} slot(s)")
+
+
+def minio_listing(path, recursive=False):
+    """Recursively or shallowly list a path inside the MinIO container."""
+    flag = "-1R" if recursive else "-1"
+    try:
+        return docker("exec", MINIO_CONTAINER, "sh", "-c", f"ls {flag} {path}")
+    except CalledProcessError:
+        return ""
+
+
+def check_paimon_data():
+    if not minio_listing(f"/data/{WAREHOUSE}/{DATABASE}.db"):
+        raise SmokeTestError(f"database '{DATABASE}' not found under {WAREHOUSE}, run the SQL demo first")
+
+    table_tree = minio_listing(TABLE_PATH, recursive=True)
+    if not table_tree:
+        raise SmokeTestError(f"table '{DATABASE}.{TABLE}' not found at {TABLE_PATH}")
+
+    for component in ("schema", "manifest", "snapshot"):
+        if f"{component}" not in table_tree:
+            raise SmokeTestError(f"table '{TABLE}' is missing its {component} directory")
+
+    if "data-" not in table_tree:
+        raise SmokeTestError(f"table '{TABLE}' has no data files, the demo wrote no rows")
+    if "snapshot-" not in table_tree:
+        raise SmokeTestError(f"table '{TABLE}' has no snapshots, no commit has completed")
+
+    # Count object names only; recursive ls also prints each object as a
+    # directory header (a line ending in ':'), which we skip.
+    entries = [line.strip() for line in table_tree.splitlines() if not line.strip().endswith(":")]
+    data_files = sum(1 for line in entries if "data-" in line and line.endswith(".parquet"))
+    snapshots = sum(1 for line in entries if line.startswith("snapshot-"))
+    print(f"  ok   table {DATABASE}.{TABLE}: {data_files} data file(s), {snapshots} snapshot(s)")
+
 
 def main():
-    print("=" * 60)
-    print("APACHE FLINK + PAIMON TEST VERIFICATION")
-    print("=" * 60)
+    checks = (
+        ("Docker containers", check_containers),
+        ("Flink REST API", check_flink),
+        ("Paimon data in MinIO", check_paimon_data),
+    )
+    print("Flink + Paimon smoke test")
+    for title, check in checks:
+        print(f"- {title}")
+        try:
+            check()
+        except SmokeTestError as exc:
+            print(f"  FAIL {exc}", file=sys.stderr)
+            print("\nSmoke test failed.", file=sys.stderr)
+            return 1
+    print("\nSmoke test passed.")
+    return 0
 
-    # Check Docker containers
-    print("\n1. Docker Containers Status:")
-    print("-" * 40)
-    containers = run_command("docker compose ps --format json")
-    for line in containers.strip().split('\n'):
-        if line:
-            container = json.loads(line)
-            print(f"  ✓ {container['Name']}: {container['Status']}")
-
-    # Check Flink cluster status
-    print("\n2. Flink Cluster Status:")
-    print("-" * 40)
-    cluster_info = run_command("curl -s http://localhost:8081/overview")
-    if cluster_info:
-        overview = json.loads(cluster_info)
-        print(f"  ✓ Flink Version: {overview.get('flink-version', 'N/A')}")
-        print(f"  ✓ Task Managers: {overview.get('taskmanagers', 0)}")
-        print(f"  ✓ Task Slots: {overview.get('slots-total', 0)} total, {overview.get('slots-available', 0)} available")
-
-    # Check completed jobs
-    print("\n3. Flink Jobs:")
-    print("-" * 40)
-    jobs_info = run_command("curl -s http://localhost:8081/jobs")
-    if jobs_info:
-        jobs = json.loads(jobs_info)
-        for job in jobs.get('jobs', []):
-            print(f"  ✓ Job {job['id'][:8]}... - Status: {job['status']}")
-
-    # Check MinIO data
-    print("\n4. MinIO Storage Verification:")
-    print("-" * 40)
-
-    # Check warehouse structure
-    warehouse = run_command("docker exec minio sh -c 'mc ls local/warehouse/' 2>/dev/null")
-    if "test_db.db" in warehouse:
-        print("  ✓ Database 'test_db.db' exists in warehouse")
-
-    # Check table structure
-    table_dirs = run_command("docker exec minio sh -c 'mc ls local/warehouse/test_db.db/users/' 2>/dev/null")
-    expected_dirs = ['bucket-', 'manifest/', 'schema/', 'snapshot/']
-    for expected in expected_dirs:
-        if any(expected in line for line in table_dirs.split('\n')):
-            print(f"  ✓ Table structure contains: {expected.rstrip('/')}")
-
-    # Count data files
-    data_files = run_command("docker exec minio sh -c 'mc ls --recursive local/warehouse/test_db.db/users/ 2>/dev/null' | grep -c 'data-' || echo 0")
-    print(f"  ✓ Data files found: {data_files.strip()}")
-
-    # Check snapshots
-    snapshots = run_command("docker exec minio sh -c 'mc ls local/warehouse/test_db.db/users/snapshot/ 2>/dev/null'")
-    snapshot_count = len([l for l in snapshots.split('\n') if 'snapshot-' in l])
-    print(f"  ✓ Snapshots created: {snapshot_count}")
-
-    print("\n5. Test Summary:")
-    print("-" * 40)
-    print("  ✓ Flink cluster is running")
-    print("  ✓ Paimon catalog created successfully")
-    print("  ✓ Data successfully written to MinIO S3 storage")
-    print("  ✓ Paimon table structure properly initialized")
-    print("  ✓ Multiple snapshots indicate successful data operations")
-
-    print("\n✅ ALL TESTS PASSED - Flink + Paimon integration is working!")
-    print("=" * 60)
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
