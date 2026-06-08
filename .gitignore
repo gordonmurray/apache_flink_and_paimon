@@ -3,6 +3,9 @@
 .idea/
 .vscode/
 
+# Local environment overrides (keep .env.example tracked)
+.env
+
 # Python
 __pycache__/
 *.pyc

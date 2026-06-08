@@ -131,8 +131,9 @@ docker compose down -v
 ## 📝 Notes
 
 - This is an updated version of a project I originally started two years ago
-- MinIO credentials are `admin` / `password123` for local development
-- The setup automatically creates the required buckets (`warehouse` and `checkpoints`)
+- MinIO credentials default to `admin` / `password123`; copy `.env.example` to `.env` to change them or the container names
+- The custom Flink image is built locally as `flink-paimon:local`
+- Bucket creation runs to completion before Flink starts, so the `warehouse` and `checkpoints` buckets always exist first
 - All data is persisted in Docker volumes between restarts
 
 ## 🎉 Success
