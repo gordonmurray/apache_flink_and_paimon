@@ -1,0 +1,11 @@
+# Local agent/editor state
+.claude/
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
