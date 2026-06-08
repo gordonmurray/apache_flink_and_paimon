@@ -43,15 +43,33 @@ docker compose up -d
 docker exec -it flink-jobmanager /opt/flink/bin/sql-client.sh embedded
 ```
 
-### 4. Create Your First Paimon Table
+### 4. Run the Canonical Paimon Demo
 
-Once in the Flink SQL client, run these commands:
+The checked demo lives in `sql/test_paimon.sql`. It creates the `paimon_catalog`
+catalog, uses `s3://warehouse/` as the warehouse path, creates
+`test_db.users`, inserts sample rows, updates a couple of users, and runs a few
+queries.
+
+Copy the SQL file into the JobManager container and run it with Flink SQL:
+
+```bash
+docker cp sql/test_paimon.sql flink-jobmanager:/tmp/test_paimon.sql
+docker exec -it flink-jobmanager /opt/flink/bin/sql-client.sh embedded -f /tmp/test_paimon.sql
+```
+
+If you prefer to run the commands manually, connect to the Flink SQL client:
+
+```bash
+docker exec -it flink-jobmanager /opt/flink/bin/sql-client.sh embedded
+```
+
+Then paste the canonical demo from `sql/test_paimon.sql`:
 
 ```sql
 -- Create the Paimon catalog pointing to MinIO
 CREATE CATALOG paimon_catalog WITH (
    'type' = 'paimon',
-   'warehouse' = 's3://warehouse/paimon/',
+   'warehouse' = 's3://warehouse/',
    's3.endpoint' = 'http://minio:9000',
    's3.access-key' = 'admin',
    's3.secret-key' = 'password123',
@@ -62,31 +80,45 @@ CREATE CATALOG paimon_catalog WITH (
 USE CATALOG paimon_catalog;
 
 -- Create a database
-CREATE DATABASE test_db;
+CREATE DATABASE IF NOT EXISTS test_db;
 USE test_db;
 
 -- Create a table with primary key
-CREATE TABLE user_events (
-  user_id BIGINT,
-  event_type STRING,
-  timestamp_val TIMESTAMP(3),
+CREATE TABLE IF NOT EXISTS users (
+  user_id INT,
+  username STRING,
+  email STRING,
+  age INT,
+  registration_date TIMESTAMP(3),
   PRIMARY KEY (user_id) NOT ENFORCED
+) WITH (
+  'bucket' = '4',
+  'changelog-producer' = 'input'
 );
 
 -- Insert some test data
-INSERT INTO user_events VALUES
-  (1001, 'login', TIMESTAMP '2024-01-01 10:00:00'),
-  (1002, 'purchase', TIMESTAMP '2024-01-01 10:15:00');
+INSERT INTO users VALUES
+  (1, 'alice', 'alice@example.com', 28, TIMESTAMP '2024-01-15 10:30:00'),
+  (2, 'bob', 'bob@example.com', 35, TIMESTAMP '2024-01-16 11:45:00'),
+  (3, 'charlie', 'charlie@example.com', 42, TIMESTAMP '2024-01-17 09:15:00'),
+  (4, 'diana', 'diana@example.com', 31, TIMESTAMP '2024-01-18 14:20:00'),
+  (5, 'edward', 'edward@example.com', 26, TIMESTAMP '2024-01-19 16:30:00');
 
 -- Query the data
-SELECT * FROM user_events;
+SELECT * FROM users;
 ```
 
 ## 📊 What You'll See
 
 - Your INSERT job will appear in the Flink Web UI and complete successfully
-- Data files will be created in MinIO under the `/warehouse/paimon/` path
+- Data files will be created in MinIO under `/warehouse/test_db.db/users/`
 - Paimon maintains full ACID properties with snapshots, manifests, and schema evolution support
+
+To verify the demo storage layout after running `sql/test_paimon.sql`, run:
+
+```bash
+python3 verify_test.py
+```
 
 ## 🌩️ Using with Real AWS S3
 
