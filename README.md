@@ -6,8 +6,12 @@ A complete Docker-based setup demonstrating how to use **Apache Flink** to write
 
 - **Apache Flink 1.19.3** - Stream processing framework
 - **Apache Paimon 1.2.0** - Lakehouse storage format with ACID transactions
-- **MinIO (latest)** - S3-compatible object storage
+- **flink-shaded-hadoop 2.8.3-10.0** - Hadoop classes Paimon needs for S3 access
+- **MinIO RELEASE.2025-09-07T16-13-09Z** - S3-compatible object storage
+- **MinIO Client (mc) RELEASE.2025-08-13T08-35-41Z** - Creates the demo buckets
 - **Custom Docker Image** - Pre-built with all required JARs to avoid dependency conflicts
+
+All images and jar versions are pinned, and the jar downloads are checksum-verified at build time so the setup stays reproducible over time.
 
 ## 🎯 Why This Approach Works
 
