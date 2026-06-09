@@ -11,6 +11,8 @@ PAIMON_WAREHOUSE, PAIMON_DATABASE, and PAIMON_TABLE environment variables to
 match a different demo. The container names follow the same MINIO_CONTAINER,
 FLINK_JOBMANAGER_CONTAINER, and FLINK_TASKMANAGER_CONTAINER variables that
 docker-compose.yml uses, so renaming the containers there is picked up here too.
+The final check reads the table back through Flink, using MINIO_ENDPOINT,
+MINIO_ROOT_USER, and MINIO_ROOT_PASSWORD (defaults match the demo).
 """
 import json
 import os
@@ -29,6 +31,10 @@ TASKMANAGER_CONTAINER = os.environ.get("FLINK_TASKMANAGER_CONTAINER", "flink-tas
 WAREHOUSE = os.environ.get("PAIMON_WAREHOUSE", "warehouse")
 DATABASE = os.environ.get("PAIMON_DATABASE", "test_db")
 TABLE = os.environ.get("PAIMON_TABLE", "users")
+# Connection used to read the table back through Flink; defaults match the demo.
+MINIO_ENDPOINT = os.environ.get("MINIO_ENDPOINT", "http://minio:9000")
+MINIO_USER = os.environ.get("MINIO_ROOT_USER", "admin")
+MINIO_PASSWORD = os.environ.get("MINIO_ROOT_PASSWORD", "password123")
 EXPECTED_CONTAINERS = (MINIO_CONTAINER, JOBMANAGER_CONTAINER, TASKMANAGER_CONTAINER)
 
 # MinIO single-drive layout stores each object under /data/<bucket>/...
@@ -110,11 +116,50 @@ def check_paimon_data():
     print(f"  ok   table {DATABASE}.{TABLE}: {data_files} data file(s), {snapshots} snapshot(s)")
 
 
+def check_query():
+    """Read the table back through Flink to prove it is queryable, not just present on disk."""
+    sql = (
+        "SET 'execution.runtime-mode' = 'batch';\n"
+        "SET 'sql-client.execution.result-mode' = 'tableau';\n"
+        "CREATE CATALOG smoke_catalog WITH (\n"
+        "    'type' = 'paimon',\n"
+        f"    'warehouse' = 's3://{WAREHOUSE}/',\n"
+        f"    's3.endpoint' = '{MINIO_ENDPOINT}',\n"
+        f"    's3.access-key' = '{MINIO_USER}',\n"
+        f"    's3.secret-key' = '{MINIO_PASSWORD}',\n"
+        "    's3.path.style.access' = 'true'\n"
+        ");\n"
+        f"SELECT COUNT(*) AS row_count FROM smoke_catalog.{DATABASE}.{TABLE};\n"
+    )
+    try:
+        run(["docker", "exec", "-i", JOBMANAGER_CONTAINER, "sh", "-c", "cat > /tmp/smoke_query.sql"],
+            input=sql, check=True, stdout=PIPE, stderr=PIPE, text=True)
+        out = docker("exec", JOBMANAGER_CONTAINER,
+                     "/opt/flink/bin/sql-client.sh", "-f", "/tmp/smoke_query.sql")
+    except CalledProcessError as exc:
+        raise SmokeTestError(f"could not query {DATABASE}.{TABLE} through Flink: {(exc.stderr or '').strip()[:300]}")
+
+    # The COUNT(*) lands in a tableau data row like "|        5 |".
+    counts = []
+    for line in out.splitlines():
+        cell = line.strip().strip("|").strip()
+        if cell.isdigit():
+            counts.append(int(cell))
+    if not counts:
+        detail = "query reported an error" if "ERROR" in out else "no row count in the query output"
+        raise SmokeTestError(f"could not read {DATABASE}.{TABLE} through Flink: {detail}")
+    row_count = max(counts)
+    if row_count < 1:
+        raise SmokeTestError(f"table {DATABASE}.{TABLE} is queryable but empty (COUNT = 0)")
+    print(f"  ok   Flink read {row_count} row(s) from {DATABASE}.{TABLE}")
+
+
 def main():
     checks = (
         ("Docker containers", check_containers),
         ("Flink REST API", check_flink),
         ("Paimon data in MinIO", check_paimon_data),
+        ("Query through Flink", check_query),
     )
     print("Flink + Paimon smoke test")
     for title, check in checks:
