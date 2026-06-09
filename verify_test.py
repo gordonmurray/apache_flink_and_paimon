@@ -8,7 +8,9 @@ a quick local sanity check.
 
 The expected warehouse, database, and table can be overridden with the
 PAIMON_WAREHOUSE, PAIMON_DATABASE, and PAIMON_TABLE environment variables to
-match a different demo.
+match a different demo. The container names follow the same MINIO_CONTAINER,
+FLINK_JOBMANAGER_CONTAINER, and FLINK_TASKMANAGER_CONTAINER variables that
+docker-compose.yml uses, so renaming the containers there is picked up here too.
 """
 import json
 import os
@@ -18,11 +20,16 @@ import urllib.request
 from subprocess import run, CalledProcessError, PIPE
 
 FLINK_REST = os.environ.get("FLINK_REST_URL", "http://localhost:8081")
+# Container names default to the Compose values but follow the same environment
+# variables as docker-compose.yml, so overriding them there (or in .env) keeps
+# the smoke test pointing at the right containers.
 MINIO_CONTAINER = os.environ.get("MINIO_CONTAINER", "minio")
+JOBMANAGER_CONTAINER = os.environ.get("FLINK_JOBMANAGER_CONTAINER", "flink-jobmanager")
+TASKMANAGER_CONTAINER = os.environ.get("FLINK_TASKMANAGER_CONTAINER", "flink-taskmanager")
 WAREHOUSE = os.environ.get("PAIMON_WAREHOUSE", "warehouse")
 DATABASE = os.environ.get("PAIMON_DATABASE", "test_db")
 TABLE = os.environ.get("PAIMON_TABLE", "users")
-EXPECTED_CONTAINERS = ("minio", "flink-jobmanager", "flink-taskmanager")
+EXPECTED_CONTAINERS = (MINIO_CONTAINER, JOBMANAGER_CONTAINER, TASKMANAGER_CONTAINER)
 
 # MinIO single-drive layout stores each object under /data/<bucket>/...
 TABLE_PATH = f"/data/{WAREHOUSE}/{DATABASE}.db/{TABLE}"
