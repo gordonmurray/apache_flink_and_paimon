@@ -51,15 +51,15 @@ docker compose up -d
 docker exec -it flink-jobmanager /opt/flink/bin/sql-client.sh embedded
 ```
 
-### 4. Create Your First Paimon Table
+### 4. Run the Canonical Paimon Demo
 
-Once in the Flink SQL client, run these commands:
+The canonical walkthrough is `sql/test_paimon.sql`, which creates a `test_db.users` table under the `s3://warehouse/` warehouse. In the Flink SQL client, run the same statements it contains:
 
 ```sql
 -- Create the Paimon catalog pointing to MinIO
 CREATE CATALOG paimon_catalog WITH (
    'type' = 'paimon',
-   'warehouse' = 's3://warehouse/paimon/',
+   'warehouse' = 's3://warehouse/',
    's3.endpoint' = 'http://minio:9000',
    's3.access-key' = 'admin',
    's3.secret-key' = 'password123',
@@ -69,26 +69,33 @@ CREATE CATALOG paimon_catalog WITH (
 -- Switch to the Paimon catalog
 USE CATALOG paimon_catalog;
 
--- Create a database
-CREATE DATABASE test_db;
+-- Create the database and table
+CREATE DATABASE IF NOT EXISTS test_db;
 USE test_db;
 
--- Create a table with primary key
-CREATE TABLE user_events (
-  user_id BIGINT,
-  event_type STRING,
-  timestamp_val TIMESTAMP(3),
+CREATE TABLE IF NOT EXISTS users (
+  user_id INT,
+  username STRING,
+  email STRING,
+  age INT,
+  registration_date TIMESTAMP(3),
   PRIMARY KEY (user_id) NOT ENFORCED
+) WITH (
+  'bucket' = '4',
+  'changelog-producer' = 'input'
 );
 
--- Insert some test data
-INSERT INTO user_events VALUES
-  (1001, 'login', TIMESTAMP '2024-01-01 10:00:00'),
-  (1002, 'purchase', TIMESTAMP '2024-01-01 10:15:00');
+-- Insert sample data
+INSERT INTO users VALUES
+  (1, 'alice', 'alice@example.com', 28, TIMESTAMP '2024-01-15 10:30:00'),
+  (2, 'bob', 'bob@example.com', 35, TIMESTAMP '2024-01-16 11:45:00'),
+  (3, 'charlie', 'charlie@example.com', 42, TIMESTAMP '2024-01-17 09:15:00');
 
 -- Query the data
-SELECT * FROM user_events;
+SELECT * FROM users;
 ```
+
+The `sql/` directory is mounted into the JobManager at `/sql`, so `sql/test_paimon.sql` is available there along with the other example scripts. The smoke test in step 5 checks this same `test_db.users` table.
 
 ### 5. Run the Smoke Test
 
@@ -103,7 +110,7 @@ It checks the running containers, the Flink REST API, and the Paimon table in Mi
 ## 📊 What You'll See
 
 - Your INSERT job will appear in the Flink Web UI and complete successfully
-- Data files will be created in MinIO under the `/warehouse/paimon/` path
+- Data files will be created in MinIO under the `/warehouse/test_db.db/users/` path
 - Paimon maintains full ACID properties with snapshots, manifests, and schema evolution support
 
 ## 🌩️ Using with Real AWS S3
