@@ -12,7 +12,7 @@ USE CATALOG paimon_catalog;
 USE test_db;
 
 -- Set execution mode to batch for query
-SET execution.runtime-mode=batch;
+SET 'execution.runtime-mode' = 'batch';
 
 -- Create a sink table to output results
 CREATE TEMPORARY TABLE print_sink (

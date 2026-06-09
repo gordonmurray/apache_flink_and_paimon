@@ -37,7 +37,7 @@ INSERT INTO users VALUES
     (5, 'edward', 'edward@example.com', 26, TIMESTAMP '2024-01-19 16:30:00');
 
 -- Set result mode for queries
-SET sql-client.execution.result-mode=TABLEAU;
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
 
 -- Query the data
 SELECT * FROM users;

@@ -1,16 +1,17 @@
-FROM flink:1.19.3-java17
+FROM flink:1.20.4-java17
 
 # Dependency versions and download location, kept as build args so they are
-# easy to find and bump in one place.
-ARG PAIMON_VERSION=1.2.0
-ARG PAIMON_FLINK_MINOR=1.19
+# easy to find and bump in one place. PAIMON_FLINK_MINOR must match the Flink
+# minor version of the base image above.
+ARG PAIMON_VERSION=1.4.1
+ARG PAIMON_FLINK_MINOR=1.20
 ARG HADOOP_UBER_VERSION=2.8.3-10.0
 ARG MAVEN_BASE=https://repo1.maven.org/maven2
 
 # Expected SHA-1 checksums published on Maven Central for each jar. The build
 # fails if a download is corrupt, truncated, or replaced.
-ARG PAIMON_FLINK_SHA1=1b75616bd06a9ada84b2011a37d242dd67472138
-ARG PAIMON_S3_SHA1=ed55bcfe18fd7723b7d545bb3d58f0609c0bb792
+ARG PAIMON_FLINK_SHA1=951adaacf361b3d2e22ef7077019d0522527c2b1
+ARG PAIMON_S3_SHA1=58068d37c72d5ddbb56cdbd48db69f9467bda5c5
 ARG HADOOP_UBER_SHA1=5dd57b5d38965c0f70e3f63d2581755df6c296bb
 
 # Download the Paimon and Hadoop jars, then verify them against the pinned
