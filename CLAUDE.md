@@ -12,9 +12,10 @@ The project is intentionally lightweight. Prefer small, practical changes that m
 - `docker-compose.yml`: Starts MinIO, creates buckets, and runs Flink JobManager and TaskManager.
 - `conf/flink-conf.yaml`: Local Flink cluster configuration.
 - `README.md`: User-facing quick start and project explanation.
-- `FLINK_PAIMON_SETUP.md`: Setup notes and troubleshooting guidance. This file is currently untracked unless committed later.
-- `sql/`: SQL walkthrough files for creating/querying Paimon tables. This directory is currently untracked unless committed later.
-- `verify_test.py`: Local verification script. This file is currently untracked unless committed later.
+- `FLINK_PAIMON_SETUP.md`: Setup notes and troubleshooting guidance.
+- `sql/`: SQL walkthrough files for creating/querying Paimon tables, including the canonical `test_paimon.sql` and the focused `example_*.sql` demos.
+- `verify_test.py`: Smoke test that fails with a non-zero exit code unless the stack is healthy and the demo has written Paimon data.
+- `.env.example`: Documents the MinIO credentials and container-name overrides read by Compose.
 
 ## Current Dependency Context
 
@@ -77,26 +78,26 @@ docker compose down -v
 
 ## Development Guidance
 
-- Keep the README, SQL scripts, verifier, and MinIO warehouse paths aligned. The README currently describes a `user_events` example, while local SQL files use a `users` table.
+- Keep the README, SQL scripts, verifier, and MinIO warehouse paths aligned. The canonical demo is `test_db.users` under `s3://warehouse/`, matching `sql/test_paimon.sql`, the README quick start, and `verify_test.py`.
 - Prefer one canonical demo path and make all documentation and tests point to it.
 - Pin container images instead of using `latest`.
 - Make jar downloads fail fast and verify downloaded artifacts where practical.
-- Treat `verify_test.py` as needing improvement: it should fail with a non-zero exit code when Flink, MinIO, the expected table, data files, or snapshots are missing.
+- Keep `verify_test.py` a real smoke test: it must exit non-zero when Flink, MinIO, the expected table, data files, or snapshots are missing.
 - Avoid committing local assistant/editor state such as `.claude/settings.local.json`.
 - Be careful with Docker volume cleanup. `docker compose down -v` deletes local MinIO data.
 
-## Open Cleanup Themes
+## Cleanup Status
 
-The repo has GitHub issues tracking the main cleanup work:
+The initial cleanup round is complete:
 
-- Pin container images and verify downloaded jars.
-- Update the Flink and Paimon dependency strategy.
-- Commit intended demo SQL files and the verifier, and ignore local settings.
-- Make README and SQL scripts describe the same demo.
-- Tighten Docker Compose startup dependencies and naming.
-- Add richer Paimon examples beyond a basic insert.
-- Replace `verify_test.py` with a real failing smoke test.
-- Document and tune the Flink configuration for the local demo.
+- Container images are pinned and downloaded jars are checksum-verified.
+- The dependency strategy is documented (conservative lane: Flink 1.20.4, Paimon 1.4.1).
+- The demo SQL files and the verifier are tracked, and local settings are ignored.
+- The README and SQL scripts describe the same canonical demo.
+- Docker Compose startup waits for bucket creation and uses overridable names.
+- Richer Paimon examples cover upserts, history, schema evolution, and time travel.
+- `verify_test.py` is a real smoke test that exits non-zero on failure.
+- The Flink configuration is documented and tuned, with checkpoints written to MinIO.
 
 ## Expected Demo Shape
 
