@@ -30,9 +30,9 @@ CREATE CATALOG paimon_catalog WITH (
 - **Fix**: Ensure warehouse path has trailing slash: `'warehouse' = 's3://warehouse/'`
 
 #### SQL Client Execution Mode
-- **Issue**: Queries fail in non-interactive mode
-- **Fix**: For batch queries, use `SET execution.runtime-mode=batch;`
-- **Note**: SET commands don't work in `-f` file mode with certain Flink versions
+- **Issue**: Queries fail or hang in non-interactive (`-f`) mode
+- **Fix**: For batch queries, use the quoted form `SET 'execution.runtime-mode' = 'batch';`. Flink 1.20 rejects the older unquoted `SET key=value;` syntax.
+- **Note**: Add `SET 'table.dml-sync' = 'true';` so each INSERT finishes before the next statement reads the table in `-f` mode
 
 ### 4. Testing Data Flow
 
@@ -52,19 +52,23 @@ CREATE TABLE users (
 ```
 
 #### Verify Data in MinIO
+MinIO stores each object on its single drive under `/data`, so the table layout
+can be inspected directly without configuring an `mc` alias:
 ```bash
 # Check warehouse structure
-docker exec minio mc ls local/warehouse/test_db.db/users/
+docker exec minio ls /data/warehouse/test_db.db/users/
 
 # Expected directories:
-# - bucket-0/ bucket-1/ bucket-2/  (data buckets)
+# - bucket-0/ bucket-1/ ...  (data buckets)
 # - manifest/  (table manifests)
 # - schema/    (table schema)
 # - snapshot/  (data snapshots)
 
-# Count data files
-docker exec minio sh -c "mc ls --recursive local/warehouse/test_db.db/users/ | grep -c 'data-'"
+# List the data files across buckets
+docker exec minio sh -c "ls -1R /data/warehouse/test_db.db/users/ | grep 'data-'"
 ```
+Or just run `python3 verify_test.py`, which checks all of this and exits
+non-zero if anything is missing.
 
 ### 5. Verification Checklist
 - [ ] All containers running and healthy: `docker compose ps`
@@ -76,8 +80,8 @@ docker exec minio sh -c "mc ls --recursive local/warehouse/test_db.db/users/ | g
 - [ ] Multiple snapshots created after inserts/updates
 
 ### 6. Key Dependencies
-- **Flink**: 1.19.3 (or compatible version)
-- **Paimon**: 1.2.0 (must match Flink version compatibility)
+- **Flink**: 1.20.4 (conservative lane; see README for the modern Flink 2.x option)
+- **Paimon**: 1.4.1 (`paimon-flink-1.20` jar must match the Flink minor version)
 - **Hadoop AWS**: Required for S3 filesystem support
 - **Dockerfile must include**: Paimon JARs in `/opt/flink/lib/`
 
