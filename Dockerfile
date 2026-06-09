@@ -33,3 +33,10 @@ RUN set -eux; \
     rm jars.sha1; \
     chown flink:flink paimon-*.jar flink-shaded-hadoop-*.jar; \
     ls -la paimon-* flink-shaded-hadoop-*
+
+# Enable Flink's bundled S3 filesystem plugin so the cluster can write
+# checkpoints to the MinIO 'checkpoints' bucket. The jar ships with the base
+# image under /opt/flink/opt, so no extra download is needed.
+RUN set -eux; \
+    mkdir -p /opt/flink/plugins/s3-fs-hadoop; \
+    cp /opt/flink/opt/flink-s3-fs-hadoop-*.jar /opt/flink/plugins/s3-fs-hadoop/
