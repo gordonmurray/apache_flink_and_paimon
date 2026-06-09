@@ -2,7 +2,7 @@
 
 A complete Docker-based setup demonstrating how to use **Apache Flink** to write data to **MinIO** (S3-compatible storage) using **Apache Paimon** as a lakehouse storage format. This project solves the dependency hell that often occurs when trying to integrate these components together.
 
-## 🚀 What's Inside
+## What's Inside
 
 - **Apache Flink 1.20.4** - Stream processing framework
 - **Apache Paimon 1.4.1** - Lakehouse storage format with ACID transactions
@@ -13,21 +13,7 @@ A complete Docker-based setup demonstrating how to use **Apache Flink** to write
 
 All images and jar versions are pinned, and the jar downloads are checksum-verified at build time so the setup stays reproducible over time.
 
-### Version lane
-
-This demo runs the conservative lane: Flink 1.20.4 with Paimon 1.4.1. It stays close to the long-lived Flink 1.x line while moving Paimon up to a current release, so the upgrade from the original 1.19.3 / 1.2.0 setup is low risk. To move to the modern lane (Flink 2.2.x with Paimon 1.4.1), bump the base image and set `PAIMON_FLINK_MINOR` to the matching Flink minor in the Dockerfile; expect to revisit the config and SQL for any 2.x changes. The cluster uses the standard `config.yaml` format (Flink 1.20 also reads the legacy `flink-conf.yaml`).
-
-## 🎯 Why This Approach Works
-
-Previous attempts to use volume mounts for JARs often failed due to classpath and dependency resolution issues. This project builds a custom Dockerfile that extends `flink:1.20.4-java17` and downloads three critical JARs directly into `/opt/flink/lib/`:
-
-- `paimon-flink-1.20-1.4.1.jar` - Main Paimon connector for Flink
-- `paimon-s3-1.4.1.jar` - Paimon's S3 implementation
-- `flink-shaded-hadoop-2-uber-2.8.3-10.0.jar` - Required Hadoop classes
-
-**The key insight:** Paimon internally requires Hadoop classes regardless of which S3 approach you use, but Flink's base images don't include them. The custom Docker image ensures all dependencies are available in a single, consistent environment - eliminating the dependency hell that plagued earlier versions of this integration.
-
-## 🛠️ Quick Start
+## Quick Start
 
 ### 1. Build and Start the Services
 
@@ -97,6 +83,8 @@ SELECT * FROM users;
 
 The `sql/` directory is mounted into the JobManager at `/sql`, so `sql/test_paimon.sql` is available there along with the other example scripts. The smoke test in step 5 checks this same `test_db.users` table.
 
+You can also run the whole demo in one command with `scripts/run-demo.sh`, which starts the stack, runs the canonical demo, and runs the smoke test.
+
 ### 5. Run the Smoke Test
 
 Once the INSERT job has finished, confirm the demo actually wrote Paimon data to MinIO:
@@ -105,17 +93,17 @@ Once the INSERT job has finished, confirm the demo actually wrote Paimon data to
 python3 verify_test.py
 ```
 
-It checks the running containers, the Flink REST API, and the Paimon table in MinIO, and exits non-zero if anything is missing.
+It checks the running containers, the Flink REST API, and the Paimon table in MinIO, and reads the table back through Flink. It exits non-zero if anything is missing.
 
-## 📊 What You'll See
+## What You'll See
 
 - Your INSERT job will appear in the Flink Web UI and complete successfully
 - Data files will be created in MinIO under the `/warehouse/test_db.db/users/` path
 - Paimon maintains full ACID properties with snapshots, manifests, and schema evolution support
 
-## 🌩️ Using with Real AWS S3
+## Using with Real AWS S3
 
-To use this setup with actual AWS S3 instead of MinIO, simply modify the catalog configuration:
+To use this setup with actual AWS S3 instead of MinIO, modify the catalog configuration:
 
 ```sql
 CREATE CATALOG paimon_catalog WITH (
@@ -127,9 +115,19 @@ CREATE CATALOG paimon_catalog WITH (
 );
 ```
 
-The same JARs work perfectly with real AWS S3!
+The same image and jars work against real AWS S3. Before using this beyond a local demo, read the production notes below.
 
-## ⚙️ Flink Configuration
+## Production Notes
+
+This project is a local demo and is not hardened for production. Before adapting it for real infrastructure:
+
+- **Credentials**: Do not hard-code access keys in SQL, Compose, or the image. On AWS, prefer IAM roles or instance/IRSA profiles so no static keys are needed; elsewhere, load secrets from a secrets manager or environment, not from version control.
+- **Bucket access**: Apply least-privilege bucket policies and separate buckets or prefixes per environment, rather than the single shared `warehouse` and `checkpoints` buckets used here.
+- **Checkpoint retention**: The demo keeps a small number of checkpoints (`state.checkpoints.num-retained`). Tune retention and cleanup for your recovery needs and storage cost, and consider the rocksdb state backend for large state.
+- **Object-store consistency**: Paimon relies on the object store's consistency guarantees. AWS S3 is strongly consistent, but other S3-compatible stores vary; validate behavior for your store before relying on it.
+- **Cluster sizing and availability**: The single JobManager and TaskManager and the laptop-sized memory settings are for a demo. Size memory, parallelism, and high availability for real workloads.
+
+## Flink Configuration
 
 The cluster is configured in `conf/config.yaml`. The settings that matter for this demo:
 
@@ -141,7 +139,7 @@ The cluster is configured in `conf/config.yaml`. The settings that matter for th
 
 The memory sizes, web submit/cancel, restart strategy, and hard-coded MinIO credentials are local demo choices and should be reviewed before reusing this file elsewhere.
 
-## 📚 Example SQL Walkthroughs
+## Example SQL Walkthroughs
 
 The `sql/` directory holds focused examples that show more of what Paimon can do beyond a basic insert. They are mounted into the JobManager at `/sql` and use their own `paimon_examples` database, so they stay separate from the main `test_db` demo. Each one drops and recreates its table, so it produces the same result every run.
 
@@ -158,7 +156,7 @@ docker exec -i flink-jobmanager /opt/flink/bin/sql-client.sh -f /sql/example_ups
 
 The smoke test (`verify_test.py`) covers the canonical `test_db.users` demo from the quick start.
 
-## 🧹 Cleanup
+## Cleanup
 
 ```bash
 # Stop all services
@@ -168,7 +166,7 @@ docker compose down
 docker compose down -v
 ```
 
-## 📝 Notes
+## Notes
 
 - This is an updated version of a project I originally started two years ago
 - MinIO credentials default to `admin` / `password123`; copy `.env.example` to `.env` to change them or the container names
@@ -176,11 +174,10 @@ docker compose down -v
 - Bucket creation runs to completion before Flink starts, so the `warehouse` and `checkpoints` buckets always exist first
 - All data is persisted in Docker volumes between restarts
 
-## 🎉 Success
+## Success
 
 If everything works correctly, you should see:
+
 - Flink jobs complete successfully in the Web UI
 - Data files appear in MinIO storage with proper Paimon structure
 - No JAR conflicts or classpath issues in the logs
-
-This integration finally makes Flink + Paimon + S3 storage work reliably together! 🚀
