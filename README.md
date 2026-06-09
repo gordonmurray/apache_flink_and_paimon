@@ -130,6 +130,23 @@ The cluster is configured in `conf/flink-conf.yaml`. The settings that matter fo
 
 The memory sizes, web submit/cancel, restart strategy, and hard-coded MinIO credentials are local demo choices and should be reviewed before reusing this file elsewhere.
 
+## 📚 Example SQL Walkthroughs
+
+The `sql/` directory holds focused examples that show more of what Paimon can do beyond a basic insert. They are mounted into the JobManager at `/sql` and use their own `paimon_examples` database, so they stay separate from the main `test_db` demo. Each one drops and recreates its table, so it produces the same result every run.
+
+Run any of them after `docker compose up -d`:
+
+```bash
+docker exec -i flink-jobmanager /opt/flink/bin/sql-client.sh -f /sql/example_upserts.sql
+```
+
+- `example_upserts.sql` - primary-key upserts, where rewriting a key updates the row instead of adding a duplicate
+- `example_history.sql` - inspecting snapshot and schema history through Paimon's system tables
+- `example_schema_evolution.sql` - adding a column to a live table, with older rows reading back as NULL
+- `example_time_travel.sql` - reading an earlier snapshot with a query hint and comparing it to the current table
+
+The smoke test (`verify_test.py`) covers the canonical `test_db.users` demo from the quick start.
+
 ## 🧹 Cleanup
 
 ```bash
