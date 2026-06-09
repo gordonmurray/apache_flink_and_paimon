@@ -20,12 +20,12 @@ The project is intentionally lightweight. Prefer small, practical changes that m
 
 The current checked-in Dockerfile uses:
 
-- Apache Flink `1.19.3`
-- Apache Paimon `1.2.0`
+- Apache Flink `1.20.4`
+- Apache Paimon `1.4.1` (`paimon-flink-1.20` jar)
 - Java 17 Flink base image
-- MinIO images currently referenced as `latest`
+- Pinned MinIO and MinIO client images
 
-As of June 2026, this should be revisited. Paimon `1.4.1` publishes bundled jars for Flink `2.2`, `2.1`, `2.0`, `1.20`, `1.19`, and older lines. A conservative refresh path is likely Flink `1.20.4` with Paimon `1.4.1`; a more modern path is Flink `2.2.x` with Paimon `1.4.1`.
+This is the conservative lane: it stays on the Flink 1.x line while moving Paimon to a current release. The modern lane is Flink `2.2.x` with Paimon `1.4.1`; moving there means bumping the base image, setting `PAIMON_FLINK_MINOR` to the matching Flink minor, and revisiting the config and SQL for any 2.x changes. Note Flink 1.20 still reads the legacy `flink-conf.yaml`, while `config.yaml` is the newer format to migrate to later.
 
 When changing versions, keep the Flink image, Paimon jar artifact name, Paimon version, and README in sync.
 

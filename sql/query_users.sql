@@ -13,7 +13,7 @@ USE CATALOG paimon_catalog;
 USE test_db;
 
 -- Set result mode for queries
-SET sql-client.execution.result-mode=TABLEAU;
+SET 'sql-client.execution.result-mode' = 'TABLEAU';
 
 -- Query all users
 SELECT * FROM users;

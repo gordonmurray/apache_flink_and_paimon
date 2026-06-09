@@ -4,8 +4,8 @@ A complete Docker-based setup demonstrating how to use **Apache Flink** to write
 
 ## 🚀 What's Inside
 
-- **Apache Flink 1.19.3** - Stream processing framework
-- **Apache Paimon 1.2.0** - Lakehouse storage format with ACID transactions
+- **Apache Flink 1.20.4** - Stream processing framework
+- **Apache Paimon 1.4.1** - Lakehouse storage format with ACID transactions
 - **flink-shaded-hadoop 2.8.3-10.0** - Hadoop classes Paimon needs for S3 access
 - **MinIO RELEASE.2025-09-07T16-13-09Z** - S3-compatible object storage
 - **MinIO Client (mc) RELEASE.2025-08-13T08-35-41Z** - Creates the demo buckets
@@ -13,12 +13,16 @@ A complete Docker-based setup demonstrating how to use **Apache Flink** to write
 
 All images and jar versions are pinned, and the jar downloads are checksum-verified at build time so the setup stays reproducible over time.
 
+### Version lane
+
+This demo runs the conservative lane: Flink 1.20.4 with Paimon 1.4.1. It stays close to the long-lived Flink 1.x line while moving Paimon up to a current release, so the upgrade from the original 1.19.3 / 1.2.0 setup is low risk. To move to the modern lane (Flink 2.2.x with Paimon 1.4.1), bump the base image and set `PAIMON_FLINK_MINOR` to the matching Flink minor in the Dockerfile; expect to revisit the config and SQL for any 2.x changes. Flink 1.20 reads the legacy `flink-conf.yaml` used here, though `config.yaml` is the newer format to migrate to later.
+
 ## 🎯 Why This Approach Works
 
-Previous attempts to use volume mounts for JARs often failed due to classpath and dependency resolution issues. This project builds a custom Dockerfile that extends `flink:1.19.3-java17` and downloads three critical JARs directly into `/opt/flink/lib/`:
+Previous attempts to use volume mounts for JARs often failed due to classpath and dependency resolution issues. This project builds a custom Dockerfile that extends `flink:1.20.4-java17` and downloads three critical JARs directly into `/opt/flink/lib/`:
 
-- `paimon-flink-1.19-1.2.0.jar` - Main Paimon connector for Flink
-- `paimon-s3-1.2.0.jar` - Paimon's S3 implementation
+- `paimon-flink-1.20-1.4.1.jar` - Main Paimon connector for Flink
+- `paimon-s3-1.4.1.jar` - Paimon's S3 implementation
 - `flink-shaded-hadoop-2-uber-2.8.3-10.0.jar` - Required Hadoop classes
 
 **The key insight:** Paimon internally requires Hadoop classes regardless of which S3 approach you use, but Flink's base images don't include them. The custom Docker image ensures all dependencies are available in a single, consistent environment - eliminating the dependency hell that plagued earlier versions of this integration.
