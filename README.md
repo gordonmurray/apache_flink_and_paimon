@@ -15,7 +15,7 @@ All images and jar versions are pinned, and the jar downloads are checksum-verif
 
 ### Version lane
 
-This demo runs the conservative lane: Flink 1.20.4 with Paimon 1.4.1. It stays close to the long-lived Flink 1.x line while moving Paimon up to a current release, so the upgrade from the original 1.19.3 / 1.2.0 setup is low risk. To move to the modern lane (Flink 2.2.x with Paimon 1.4.1), bump the base image and set `PAIMON_FLINK_MINOR` to the matching Flink minor in the Dockerfile; expect to revisit the config and SQL for any 2.x changes. Flink 1.20 reads the legacy `flink-conf.yaml` used here, though `config.yaml` is the newer format to migrate to later.
+This demo runs the conservative lane: Flink 1.20.4 with Paimon 1.4.1. It stays close to the long-lived Flink 1.x line while moving Paimon up to a current release, so the upgrade from the original 1.19.3 / 1.2.0 setup is low risk. To move to the modern lane (Flink 2.2.x with Paimon 1.4.1), bump the base image and set `PAIMON_FLINK_MINOR` to the matching Flink minor in the Dockerfile; expect to revisit the config and SQL for any 2.x changes. The cluster uses the standard `config.yaml` format (Flink 1.20 also reads the legacy `flink-conf.yaml`).
 
 ## 🎯 Why This Approach Works
 
@@ -131,7 +131,7 @@ The same JARs work perfectly with real AWS S3!
 
 ## ⚙️ Flink Configuration
 
-The cluster is configured in `conf/flink-conf.yaml`. The settings that matter for this demo:
+The cluster is configured in `conf/config.yaml`. The settings that matter for this demo:
 
 - **Memory**: `jobmanager.memory.process.size` and `taskmanager.memory.process.size` are sized to run both on a laptop. Managed memory stays at the Flink default (0.4 of task manager memory), which is enough for Paimon's writers here.
 - **Slots and parallelism**: `taskmanager.numberOfTaskSlots: 4` with `parallelism.default: 1`, so the small examples are easy to follow.

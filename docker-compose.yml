@@ -45,7 +45,7 @@ services:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
     volumes:
       # Mount the config and the SQL examples (read-only) for the sql-client
-      - ./conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - ./conf/config.yaml:/opt/flink/conf/config.yaml
       - ./sql:/sql:ro
     command: jobmanager
     depends_on:
@@ -66,7 +66,7 @@ services:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
     volumes:
-      - ./conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      - ./conf/config.yaml:/opt/flink/conf/config.yaml
     command: taskmanager
     depends_on:
       jobmanager:

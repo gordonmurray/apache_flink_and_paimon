@@ -1,0 +1,46 @@
+blob:
+  server:
+    port: '6124'
+taskmanager:
+  memory:
+    process:
+      size: 1728m
+  numberOfTaskSlots: '4'
+state:
+  checkpoints:
+    num-retained: 3
+    dir: s3://checkpoints/flink/
+  backend:
+    type: hashmap
+restart-strategy:
+  type: fixed-delay
+  fixed-delay:
+    attempts: 3
+    delay: 10s
+jobmanager:
+  rpc:
+    address: jobmanager
+    port: 6123
+  memory:
+    process:
+      size: 1600m
+web:
+  cancel:
+    enable: true
+  submit:
+    enable: true
+query:
+  server:
+    port: '6125'
+execution:
+  checkpointing:
+    interval: 30s
+s3:
+  access-key: admin
+  secret-key: password123
+  endpoint: http://minio:9000
+  path:
+    style:
+      access: true
+parallelism:
+  default: 1

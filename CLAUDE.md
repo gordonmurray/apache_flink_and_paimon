@@ -10,7 +10,7 @@ The project is intentionally lightweight. Prefer small, practical changes that m
 
 - `Dockerfile`: Builds the custom Flink image and installs the Paimon and Hadoop jars into `/opt/flink/lib/`.
 - `docker-compose.yml`: Starts MinIO, creates buckets, and runs Flink JobManager and TaskManager.
-- `conf/flink-conf.yaml`: Local Flink cluster configuration.
+- `conf/config.yaml`: Local Flink cluster configuration (standard Flink 1.20 format).
 - `README.md`: User-facing quick start and project explanation.
 - `FLINK_PAIMON_SETUP.md`: Setup notes and troubleshooting guidance.
 - `sql/`: SQL walkthrough files for creating/querying Paimon tables, including the canonical `test_paimon.sql` and the focused `example_*.sql` demos.
@@ -26,7 +26,7 @@ The current checked-in Dockerfile uses:
 - Java 17 Flink base image
 - Pinned MinIO and MinIO client images
 
-This is the conservative lane: it stays on the Flink 1.x line while moving Paimon to a current release. The modern lane is Flink `2.2.x` with Paimon `1.4.1`; moving there means bumping the base image, setting `PAIMON_FLINK_MINOR` to the matching Flink minor, and revisiting the config and SQL for any 2.x changes. Note Flink 1.20 still reads the legacy `flink-conf.yaml`, while `config.yaml` is the newer format to migrate to later.
+This is the conservative lane: it stays on the Flink 1.x line while moving Paimon to a current release. The modern lane is Flink `2.2.x` with Paimon `1.4.1`; moving there means bumping the base image, setting `PAIMON_FLINK_MINOR` to the matching Flink minor, and revisiting the config and SQL for any 2.x changes. The cluster config uses the standard `config.yaml` format (Flink 1.20 also still reads the legacy `flink-conf.yaml`).
 
 When changing versions, keep the Flink image, Paimon jar artifact name, Paimon version, and README in sync.
 

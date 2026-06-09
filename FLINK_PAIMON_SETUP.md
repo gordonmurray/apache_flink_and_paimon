@@ -3,7 +3,7 @@
 ## Critical Setup Requirements
 
 ### 1. Docker Configuration
-- **File Permissions**: Ensure `conf/flink-conf.yaml` has proper permissions (`chmod 644`)
+- **File Permissions**: Ensure `conf/config.yaml` has proper permissions (`chmod 644`)
 - **Volume Mounts**: Mount config files directly, not directories
 - **Health Checks**: Use proper health checks for service dependencies
 
@@ -21,9 +21,9 @@ CREATE CATALOG paimon_catalog WITH (
 
 ### 3. Common Issues and Fixes
 
-#### Permission Denied on flink-conf.yaml
-- **Symptom**: `java.io.FileNotFoundException: /opt/flink/conf/flink-conf.yaml (Permission denied)`
-- **Fix**: Run `chmod 644 conf/flink-conf.yaml` before starting containers
+#### Permission Denied on config.yaml
+- **Symptom**: `java.io.FileNotFoundException: /opt/flink/conf/config.yaml (Permission denied)`
+- **Fix**: Run `chmod 644 conf/config.yaml` before starting containers
 
 #### Warehouse Path Must Be Absolute
 - **Symptom**: `java.lang.IllegalArgumentException: path must be absolute`
