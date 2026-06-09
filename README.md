@@ -118,6 +118,18 @@ CREATE CATALOG paimon_catalog WITH (
 
 The same JARs work perfectly with real AWS S3!
 
+## ⚙️ Flink Configuration
+
+The cluster is configured in `conf/flink-conf.yaml`. The settings that matter for this demo:
+
+- **Memory**: `jobmanager.memory.process.size` and `taskmanager.memory.process.size` are sized to run both on a laptop. Managed memory stays at the Flink default (0.4 of task manager memory), which is enough for Paimon's writers here.
+- **Slots and parallelism**: `taskmanager.numberOfTaskSlots: 4` with `parallelism.default: 1`, so the small examples are easy to follow.
+- **Checkpointing**: every 30s into the MinIO `checkpoints` bucket (`state.checkpoints.dir: s3://checkpoints/flink/`), using the hashmap state backend. The bucket is the same one Compose creates at startup. Switch to the rocksdb backend if you experiment with large state.
+- **Restart strategy**: `fixed-delay` with 3 attempts and a 10s delay, suitable for local trial and error.
+- **S3 access for checkpoints**: the `s3.*` settings point Flink's bundled `flink-s3-fs-hadoop` plugin at MinIO. Paimon's catalog uses its own `s3.*` options from the SQL `CREATE CATALOG` statement, so the warehouse and checkpoint paths are configured independently.
+
+The memory sizes, web submit/cancel, restart strategy, and hard-coded MinIO credentials are local demo choices and should be reviewed before reusing this file elsewhere.
+
 ## 🧹 Cleanup
 
 ```bash
